@@ -245,6 +245,103 @@ li {
     color: #b1262b;
 }
 
+.local-note-intro {
+    margin-bottom: 10px;
+}
+
+.local-note-form {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.local-note-input {
+    flex: 1;
+    font: inherit;
+    padding: 10px 12px;
+    border: 1px solid #b8d9c3;
+    border-radius: 8px;
+    background: #ffffff;
+    color: var(--text-main);
+}
+
+.local-note-input:focus {
+    outline: none;
+    border-color: var(--green-main);
+    box-shadow: 0 0 0 3px rgba(46, 139, 87, 0.18);
+}
+
+.local-note-add {
+    border: none;
+    border-radius: 8px;
+    padding: 10px 16px;
+    font: inherit;
+    font-weight: 700;
+    color: #ffffff;
+    background: var(--green-main);
+    cursor: pointer;
+}
+
+.local-note-add:hover {
+    background: var(--green-dark);
+}
+
+.local-note-list {
+    list-style: none;
+    margin-left: 0;
+    display: grid;
+    gap: 10px;
+}
+
+.local-note-item,
+.local-note-empty {
+    background: var(--green-soft);
+    border-left: 4px solid var(--green-main);
+    border-radius: 8px;
+    padding: 12px 14px;
+}
+
+.local-note-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.local-note-text {
+    flex: 1;
+    word-break: break-word;
+}
+
+.local-note-delete {
+    border: none;
+    border-radius: 6px;
+    padding: 8px 12px;
+    font: inherit;
+    font-weight: 700;
+    color: #ffffff;
+    background: #b1262b;
+    cursor: pointer;
+}
+
+.local-note-delete:hover {
+    background: #8f1f23;
+}
+
+.local-note-status {
+    min-height: 1.2em;
+    margin-bottom: 10px;
+    font-weight: 700;
+}
+
+.local-note-status.success {
+    color: var(--green-dark);
+}
+
+.local-note-status.error {
+    color: #b1262b;
+}
+
 footer {
     background: var(--green-dark);
     color: #ffffff;
@@ -271,5 +368,9 @@ footer p + p {
 
     .form-grid {
         grid-template-columns: 1fr;
+    }
+
+    .local-note-form {
+        flex-direction: column;
     }
 }

@@ -26,6 +26,7 @@ function toggleSkillsSection() {
 const DYNAMIC_REFRESH_MS = 3000;
 let dynamicRefreshTimer = null;
 let lastDynamicSectionsSnapshot = '';
+const LOCAL_NOTES_STORAGE_KEY = 'zad7_local_notes';
 
 function createSection(id, title) {
     const section = document.createElement('section');
@@ -211,6 +212,178 @@ function buildProjectsSection(projectsData) {
     return section;
 }
 
+function readLocalNotes() {
+    try {
+        const rawNotes = window.localStorage.getItem(LOCAL_NOTES_STORAGE_KEY);
+
+        if (!rawNotes) {
+            return [];
+        }
+
+        const parsedNotes = JSON.parse(rawNotes);
+
+        if (!Array.isArray(parsedNotes)) {
+            return [];
+        }
+
+        return parsedNotes.filter(function (note) {
+            return note
+                && typeof note === 'object'
+                && typeof note.id === 'string'
+                && typeof note.text === 'string';
+        });
+    } catch (error) {
+        console.warn('Nie udalo sie odczytac notatek z localStorage:', error);
+        return [];
+    }
+}
+
+function writeLocalNotes(notes) {
+    try {
+        window.localStorage.setItem(LOCAL_NOTES_STORAGE_KEY, JSON.stringify(notes));
+        return true;
+    } catch (error) {
+        console.warn('Nie udalo sie zapisac notatek do localStorage:', error);
+        return false;
+    }
+}
+
+function renderLocalNotesList(list, notes) {
+    list.innerHTML = '';
+
+    if (notes.length === 0) {
+        const emptyItem = document.createElement('li');
+        emptyItem.className = 'local-note-empty';
+        emptyItem.textContent = 'Brak wpisow. Dodaj pierwszy wpis.';
+        list.appendChild(emptyItem);
+        return;
+    }
+
+    notes.forEach(function (note) {
+        const item = document.createElement('li');
+        item.className = 'local-note-item';
+
+        const text = document.createElement('span');
+        text.className = 'local-note-text';
+        text.textContent = note.text;
+
+        const deleteButton = document.createElement('button');
+        deleteButton.type = 'button';
+        deleteButton.className = 'local-note-delete';
+        deleteButton.textContent = 'Usun';
+        deleteButton.setAttribute('data-note-id', note.id);
+
+        item.appendChild(text);
+        item.appendChild(deleteButton);
+        list.appendChild(item);
+    });
+}
+
+function buildLocalStorageSection(main) {
+    const section = createSection('local-storage-zadanie7', 'Zadanie 7 - wpisy z localStorage');
+
+    const intro = document.createElement('p');
+    intro.className = 'local-note-intro';
+    intro.textContent = 'Wpisy sa zapisywane w przegladarce i zostaja po odswiezeniu strony.';
+
+    const form = document.createElement('form');
+    form.className = 'local-note-form';
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'local-note-input';
+    input.placeholder = 'Wpisz nowa notatke';
+    input.setAttribute('aria-label', 'Nowa notatka');
+
+    const addButton = document.createElement('button');
+    addButton.type = 'submit';
+    addButton.className = 'local-note-add';
+    addButton.textContent = 'Dodaj';
+
+    form.appendChild(input);
+    form.appendChild(addButton);
+
+    const status = document.createElement('p');
+    status.className = 'local-note-status';
+
+    const list = document.createElement('ul');
+    list.className = 'local-note-list';
+
+    let notes = readLocalNotes();
+    renderLocalNotesList(list, notes);
+
+    form.addEventListener('submit', function (event) {
+        event.preventDefault();
+
+        const value = input.value.trim();
+
+        if (!value) {
+            status.className = 'local-note-status error';
+            status.textContent = 'Wpis nie moze byc pusty.';
+            return;
+        }
+
+        const newNote = {
+            id: String(Date.now()) + '-' + String(Math.floor(Math.random() * 1000000)),
+            text: value
+        };
+
+        notes = [newNote].concat(notes);
+
+        if (!writeLocalNotes(notes)) {
+            notes = readLocalNotes();
+            status.className = 'local-note-status error';
+            status.textContent = 'Blad zapisu do localStorage.';
+            renderLocalNotesList(list, notes);
+            return;
+        }
+
+        status.className = 'local-note-status success';
+        status.textContent = 'Wpis zapisany.';
+        input.value = '';
+        renderLocalNotesList(list, notes);
+    });
+
+    list.addEventListener('click', function (event) {
+        const target = event.target;
+
+        if (!(target instanceof HTMLButtonElement)) {
+            return;
+        }
+
+        if (!target.classList.contains('local-note-delete')) {
+            return;
+        }
+
+        const noteId = target.getAttribute('data-note-id');
+
+        if (!noteId) {
+            return;
+        }
+
+        const updatedNotes = notes.filter(function (note) {
+            return note.id !== noteId;
+        });
+
+        if (!writeLocalNotes(updatedNotes)) {
+            status.className = 'local-note-status error';
+            status.textContent = 'Blad usuwania wpisu.';
+            return;
+        }
+
+        notes = updatedNotes;
+        status.className = 'local-note-status success';
+        status.textContent = 'Wpis usuniety.';
+        renderLocalNotesList(list, notes);
+    });
+
+    section.appendChild(intro);
+    section.appendChild(form);
+    section.appendChild(status);
+    section.appendChild(list);
+    main.appendChild(section);
+}
+
 function replaceSection(main, section) {
     const existingSection = document.getElementById(section.id);
 
@@ -340,6 +513,7 @@ async function initPage() {
         buildProfile(data.profile);
         buildContact(main, data.sections.contact);
         buildAbout(main, data.sections.about);
+        buildLocalStorageSection(main);
         renderDynamicSections(main, data.sections, false);
         lastDynamicSectionsSnapshot = createDynamicSectionsSnapshot(data.sections);
         buildFooter(data.footer);
@@ -351,6 +525,7 @@ async function initPage() {
         text.textContent = error.message + ' Uruchom strone przez lokalny serwer HTTP.';
         section.appendChild(text);
         main.appendChild(section);
+        buildLocalStorageSection(main);
     }
 }
 
