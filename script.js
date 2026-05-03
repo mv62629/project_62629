@@ -27,6 +27,7 @@ const DYNAMIC_REFRESH_MS = 3000;
 let dynamicRefreshTimer = null;
 let lastDynamicSectionsSnapshot = '';
 const LOCAL_NOTES_STORAGE_KEY = 'zad7_local_notes';
+const BACKEND_SUBMISSIONS_ENDPOINT = '/api/submissions';
 
 function createSection(id, title) {
     const section = document.createElement('section');
@@ -384,6 +385,195 @@ function buildLocalStorageSection(main) {
     main.appendChild(section);
 }
 
+function formatSubmissionDate(isoDate) {
+    const parsedDate = new Date(isoDate);
+
+    if (Number.isNaN(parsedDate.getTime())) {
+        return 'Nieznana data';
+    }
+
+    return parsedDate.toLocaleString('pl-PL');
+}
+
+function renderBackendSubmissionsList(list, submissions) {
+    list.innerHTML = '';
+
+    if (!Array.isArray(submissions) || submissions.length === 0) {
+        const emptyItem = document.createElement('li');
+        emptyItem.className = 'local-note-empty';
+        emptyItem.textContent = 'Brak zapisanych wpisow na serwerze.';
+        list.appendChild(emptyItem);
+        return;
+    }
+
+    submissions.forEach(function (submission) {
+        const item = document.createElement('li');
+
+        const heading = document.createElement('strong');
+        heading.textContent = submission.name + ' (' + submission.email + ')';
+
+        const message = document.createElement('p');
+        message.textContent = submission.message;
+
+        const meta = document.createElement('p');
+        meta.textContent = 'Zapisano: ' + formatSubmissionDate(submission.createdAt);
+
+        item.appendChild(heading);
+        item.appendChild(message);
+        item.appendChild(meta);
+        list.appendChild(item);
+    });
+}
+
+async function loadBackendSubmissions(list, statusElement) {
+    try {
+        const response = await fetch(BACKEND_SUBMISSIONS_ENDPOINT, {
+            method: 'GET'
+        });
+
+        if (!response.ok) {
+            throw new Error('Nie udalo sie pobrac zapisanych wpisow z backendu.');
+        }
+
+        const payload = await response.json();
+        renderBackendSubmissionsList(list, payload.items || []);
+    } catch (error) {
+        renderBackendSubmissionsList(list, []);
+        statusElement.className = 'form-status error';
+        statusElement.textContent = 'Brak polaczenia z backendem. Uruchom server.js i odswiez strone.';
+    }
+}
+
+function buildBackendSection(main) {
+    const section = createSection('backend-zadanie8', 'Zadanie 8 - backend (POST + zapis na serwerze)');
+
+    const intro = document.createElement('p');
+    intro.className = 'local-note-intro';
+    intro.textContent = 'Ten formularz wysyla dane metoda POST na backend i zapisuje je poza przegladarka.';
+
+    const storageInfo = document.createElement('p');
+    storageInfo.className = 'job-period';
+    storageInfo.textContent = 'Miejsce zapisu na serwerze: data/submissions.json';
+
+    const form = document.createElement('form');
+    form.className = 'contact-form';
+
+    const grid = document.createElement('div');
+    grid.className = 'form-grid';
+
+    const nameGroup = document.createElement('div');
+    nameGroup.className = 'form-group';
+    const nameLabel = document.createElement('label');
+    nameLabel.setAttribute('for', 'backend-name');
+    nameLabel.textContent = 'Imie i nazwisko';
+    const nameInput = document.createElement('input');
+    nameInput.id = 'backend-name';
+    nameInput.type = 'text';
+    nameInput.required = true;
+    nameGroup.appendChild(nameLabel);
+    nameGroup.appendChild(nameInput);
+
+    const emailGroup = document.createElement('div');
+    emailGroup.className = 'form-group';
+    const emailLabel = document.createElement('label');
+    emailLabel.setAttribute('for', 'backend-email');
+    emailLabel.textContent = 'Email';
+    const emailInput = document.createElement('input');
+    emailInput.id = 'backend-email';
+    emailInput.type = 'email';
+    emailInput.required = true;
+    emailGroup.appendChild(emailLabel);
+    emailGroup.appendChild(emailInput);
+
+    const messageGroup = document.createElement('div');
+    messageGroup.className = 'form-group form-group-full';
+    const messageLabel = document.createElement('label');
+    messageLabel.setAttribute('for', 'backend-message');
+    messageLabel.textContent = 'Wiadomosc';
+    const messageInput = document.createElement('textarea');
+    messageInput.id = 'backend-message';
+    messageInput.required = true;
+    messageInput.rows = 4;
+    messageGroup.appendChild(messageLabel);
+    messageGroup.appendChild(messageInput);
+
+    grid.appendChild(nameGroup);
+    grid.appendChild(emailGroup);
+    grid.appendChild(messageGroup);
+    form.appendChild(grid);
+
+    const submitButton = document.createElement('button');
+    submitButton.type = 'submit';
+    submitButton.className = 'submit-btn';
+    submitButton.textContent = 'Wyslij do backendu';
+    form.appendChild(submitButton);
+
+    const status = document.createElement('p');
+    status.className = 'form-status';
+
+    const listTitle = document.createElement('h3');
+    listTitle.textContent = 'Ostatnio zapisane wpisy na serwerze';
+
+    const list = document.createElement('ul');
+    list.className = 'project-list';
+
+    form.addEventListener('submit', async function (event) {
+        event.preventDefault();
+
+        const formPayload = {
+            name: nameInput.value.trim(),
+            email: emailInput.value.trim(),
+            message: messageInput.value.trim()
+        };
+
+        if (!formPayload.name || !formPayload.email || !formPayload.message) {
+            status.className = 'form-status error';
+            status.textContent = 'Uzupelnij wszystkie pola formularza.';
+            return;
+        }
+
+        submitButton.disabled = true;
+
+        try {
+            const response = await fetch(BACKEND_SUBMISSIONS_ENDPOINT, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(formPayload)
+            });
+
+            const result = await response.json().catch(function () {
+                return {};
+            });
+
+            if (!response.ok) {
+                throw new Error(result.message || 'Nie udalo sie zapisac danych na serwerze.');
+            }
+
+            status.className = 'form-status success';
+            status.textContent = 'Dane zostaly poprawnie wyslane i zapisane na serwerze.';
+            form.reset();
+            await loadBackendSubmissions(list, status);
+        } catch (error) {
+            status.className = 'form-status error';
+            status.textContent = error.message || 'Blad komunikacji z backendem.';
+        } finally {
+            submitButton.disabled = false;
+        }
+    });
+
+    section.appendChild(intro);
+    section.appendChild(storageInfo);
+    section.appendChild(form);
+    section.appendChild(status);
+    section.appendChild(listTitle);
+    section.appendChild(list);
+    main.appendChild(section);
+
+    loadBackendSubmissions(list, status);
+}
+
 function replaceSection(main, section) {
     const existingSection = document.getElementById(section.id);
 
@@ -514,6 +704,7 @@ async function initPage() {
         buildContact(main, data.sections.contact);
         buildAbout(main, data.sections.about);
         buildLocalStorageSection(main);
+        buildBackendSection(main);
         renderDynamicSections(main, data.sections, false);
         lastDynamicSectionsSnapshot = createDynamicSectionsSnapshot(data.sections);
         buildFooter(data.footer);
@@ -526,6 +717,7 @@ async function initPage() {
         section.appendChild(text);
         main.appendChild(section);
         buildLocalStorageSection(main);
+        buildBackendSection(main);
     }
 }
 
